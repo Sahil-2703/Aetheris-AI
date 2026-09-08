@@ -279,8 +279,8 @@ export async function updateUserSubscription(
   plan: "free" | "premium" | "premium_pro",
   status: string = "active",
   periodEnd?: string,
-  stripeCustomerId?: string,
-  stripeSubscriptionId?: string
+  paymentId?: string,
+  orderId?: string
 ) {
   const supabase = createAdminSupabaseClient();
 
@@ -295,11 +295,11 @@ export async function updateUserSubscription(
   if (periodEnd) {
     subscriptionPayload.current_period_end = periodEnd;
   }
-  if (stripeCustomerId) {
-    subscriptionPayload.stripe_customer_id = stripeCustomerId;
+  if (paymentId) {
+    subscriptionPayload.payment_id = paymentId;
   }
-  if (stripeSubscriptionId) {
-    subscriptionPayload.stripe_subscription_id = stripeSubscriptionId;
+  if (orderId) {
+    subscriptionPayload.order_id = orderId;
   }
 
   await supabase

@@ -1,27 +1,74 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { SubscriptionTier, BillingCycle } from "@/types";
 
-export const PLAN_TIERS = {
+export interface PlanConfig {
+  id: SubscriptionTier;
+  name: string;
+  tagline: string;
+  priceMonthly: number; // In INR
+  priceAnnually: number; // In INR
+  annualSavingsPercent: number;
+  tokens: number;
+  refillDays: number;
+  features: string[];
+  popular?: boolean;
+}
+
+export const SUBSCRIPTION_PLANS: Record<"free" | "premium" | "premium_pro", PlanConfig> = {
   free: {
     id: "free",
-    name: "Free Starter",
-    tokens: 10000,
-    priceInInr: 0,
-    features: ["10,000 Gemini Tokens/month", "1 Email Account Sync", "Role Dashboards", "Standard Support"],
+    name: "Free",
+    tagline: "Essential AI tools for individuals starting out",
+    priceMonthly: 0,
+    priceAnnually: 0,
+    annualSavingsPercent: 0,
+    tokens: 5000,
+    refillDays: 3,
+    features: [
+      "5,000 AI tokens quota",
+      "Auto-refills every 3 days",
+      "1 Connected Gmail inbox",
+      "AI Email summarization & reply drafting",
+      "Standard response speed",
+    ],
   },
-  pro: {
-    id: "pro",
-    name: "Pro Creator & Dev",
-    tokens: 250000,
-    priceInInr: 799,
-    features: ["250,000 Gemini Tokens/month", "Unlimited Gmail & Outlook Sync", "Instagram Integration", "Priority Realtime Sync"],
+  premium: {
+    id: "premium",
+    name: "Premium",
+    tagline: "For freelancers and active professionals",
+    priceMonthly: 199,
+    priceAnnually: 1964,
+    annualSavingsPercent: 18,
+    tokens: 125000,
+    refillDays: 3,
+    popular: true,
+    features: [
+      "125,000 AI tokens quota",
+      "Auto-refills every 3 days",
+      "Priority AI neural processing",
+      "Full Gmail inbox search & pagination",
+      "Real-time incoming email sync",
+      "Custom tone & refinement adjustments",
+    ],
   },
-  business: {
-    id: "business",
-    name: "Business Suite",
-    tokens: 1000000,
-    priceInInr: 2499,
-    features: ["1,000,000 Gemini Tokens/month", "Team & Multi-Account Sync", "Advanced Lead & Ticket Analyzer", "Dedicated Support"],
+  premium_pro: {
+    id: "premium_pro",
+    name: "Premium Pro",
+    tagline: "For high-volume power users & executives",
+    priceMonthly: 499,
+    priceAnnually: 4910,
+    annualSavingsPercent: 18,
+    tokens: 500000,
+    refillDays: 3,
+    features: [
+      "500,000 AI tokens quota",
+      "Auto-refills every 3 days",
+      "Maximum speed & VIP AI processing lane",
+      "Multi-account management",
+      "Deep email context extraction",
+      "24/7 Priority developer support",
+    ],
   },
 };
 
@@ -29,8 +76,8 @@ export function getRazorpay() {
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
   const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
 
-  if (!keyId || !keySecret) {
-    throw new Error("Razorpay credentials are missing");
+  if (!keyId || !keySecret || keyId.includes("placeholder") || keyId.includes("your_key_id")) {
+    console.warn("Razorpay credentials are not fully configured in environment variables.");
   }
 
   return new Razorpay({

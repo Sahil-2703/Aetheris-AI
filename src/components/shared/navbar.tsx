@@ -31,6 +31,9 @@ export function LandingNavbar() {
           <Link href="#pricing" className="hover:text-purple-400 transition-colors">
             Pricing
           </Link>
+          <Link href="#faq" className="hover:text-purple-400 transition-colors">
+            FAQ
+          </Link>
         </nav>
 
         {/* Right Corner: Pricing & Login/Signup */}

@@ -4,10 +4,25 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/shared/header";
 import { Sidebar } from "@/components/shared/sidebar";
-import { SUBSCRIPTION_PLANS, PlanConfig } from "@/lib/billing/stripe";
+import { SUBSCRIPTION_PLANS, PlanConfig } from "@/lib/billing/razorpay";
 import { Check, Zap, CreditCard, Sparkles, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { BillingCycle } from "@/types";
+
+// Helper to dynamically load Razorpay standard checkout script
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 function BillingContent() {
   const searchParams = useSearchParams();
@@ -20,6 +35,7 @@ function BillingContent() {
   const [nextRefillDate, setNextRefillDate] = useState<string>("");
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
 
   // Per-card billing cycle selections (default: monthly)
   const [cardCycles, setCardCycles] = useState<Record<string, BillingCycle>>({
@@ -28,36 +44,38 @@ function BillingContent() {
     premium_pro: "monthly",
   });
 
-  // Fetch current user subscription & token status
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const res = await fetch("/api/user/profile");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.subscription?.plan) {
-            setCurrentTier(data.subscription.plan);
-          }
-          if (data.tokenBalance) {
-            setTokensUsed(data.tokenBalance.tokens_used || 0);
-            setTokensLimit(data.tokenBalance.tokens_limit || 5000);
-            if (data.tokenBalance.period_end) {
-              const diffMs = new Date(data.tokenBalance.period_end).getTime() - Date.now();
-              if (diffMs > 0) {
-                const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                setNextRefillDate(`${days}d ${hours}h remaining in 3-day cycle`);
-              } else {
-                setNextRefillDate("Refill ready on next action");
-              }
+  const loadProfile = async () => {
+    try {
+      const res = await fetch("/api/user/profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.subscription?.plan) {
+          setCurrentTier(data.subscription.plan);
+        }
+        if (data.tokenBalance) {
+          setTokensUsed(data.tokenBalance.tokens_used || 0);
+          setTokensLimit(data.tokenBalance.tokens_limit || 5000);
+          if (data.tokenBalance.period_end) {
+            const diffMs = new Date(data.tokenBalance.period_end).getTime() - Date.now();
+            if (diffMs > 0) {
+              const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+              const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              setNextRefillDate(`${days}d ${hours}h remaining in 3-day cycle`);
+            } else {
+              setNextRefillDate("Refill ready on next action");
             }
           }
         }
-      } catch (err) {
-        console.error("Failed to load user billing profile:", err);
       }
+    } catch (err) {
+      console.error("Failed to load user billing profile:", err);
     }
+  };
+
+  // Fetch current user subscription & token status
+  useEffect(() => {
     loadProfile();
+    loadRazorpayScript();
   }, [success]);
 
   const handleCycleChange = (planId: string, cycle: BillingCycle) => {
@@ -75,7 +93,14 @@ function BillingContent() {
     const billingCycle = cardCycles[planKey] || "monthly";
 
     try {
-      const res = await fetch("/api/billing/create-checkout-session", {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        setErrorMessage("Failed to load Razorpay payment gateway. Please check your internet connection.");
+        setLoadingTier(null);
+        return;
+      }
+
+      const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,23 +109,75 @@ function BillingContent() {
         }),
       });
 
-      const data = await res.json();
+      const orderData = await res.json();
 
       if (!res.ok) {
-        if (data.isConfigError) {
-          setErrorMessage("Stripe API key is not yet configured in .env. Please set STRIPE_SECRET_KEY to enable live checkout.");
+        if (orderData.isConfigError) {
+          setErrorMessage("Razorpay credentials are not yet configured in .env. Please set NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
         } else {
-          setErrorMessage(data.error || "Failed to initialize payment checkout session.");
+          setErrorMessage(orderData.error || "Failed to initialize payment checkout order.");
         }
+        setLoadingTier(null);
         return;
       }
 
-      if (data.url) {
-        window.location.href = data.url;
-      }
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "Aetheris AI",
+        description: orderData.planName,
+        order_id: orderData.orderId,
+        prefill: {
+          name: orderData.user?.name || "Subscriber",
+          email: orderData.user?.email || "",
+        },
+        theme: {
+          color: "#9333ea",
+        },
+        modal: {
+          ondismiss: () => {
+            setLoadingTier(null);
+          },
+        },
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch("/api/billing/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planId: planKey,
+                billingCycle,
+              }),
+            });
+
+            if (verifyRes.ok) {
+              setPaymentSuccess(true);
+              await loadProfile();
+            } else {
+              const errJson = await verifyRes.json();
+              setErrorMessage(errJson.error || "Payment verification failed.");
+            }
+          } catch (verifyErr: any) {
+            setErrorMessage("Error verifying payment with server.");
+          } finally {
+            setLoadingTier(null);
+          }
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.on("payment.failed", function (response: any) {
+        setErrorMessage(response.error?.description || "Payment failed. Please try another payment method.");
+        setLoadingTier(null);
+      });
+
+      razorpay.open();
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to initialize Stripe checkout session.");
-    } finally {
+      setErrorMessage(err.message || "Failed to initialize payment checkout.");
       setLoadingTier(null);
     }
   };
@@ -114,13 +191,13 @@ function BillingContent() {
   return (
     <main className="flex-1 p-4 sm:p-8 space-y-8 overflow-y-auto bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950/20 via-[#050713] to-[#050713]">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Alerts for Stripe Checkout Callback */}
-        {success && (
+        {/* Alerts for Payment Callback */}
+        {(paymentSuccess || success) && (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 text-xs font-mono text-emerald-300 shadow-xl backdrop-blur-xl">
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
             <div>
               <p className="font-bold text-white">Payment Successful!</p>
-              <p className="text-emerald-300/80">Your subscription has been upgraded and your token balance has been refilled.</p>
+              <p className="text-emerald-300/80">Your subscription has been activated via Razorpay and your token quota has been credited.</p>
             </div>
           </div>
         )}
@@ -152,7 +229,7 @@ function BillingContent() {
               </h2>
             </div>
             <p className="text-xs font-mono text-slate-400 mt-1">
-              All plans feature automatic 3-day token replenishment � even with tokens remaining in your bucket.
+              All plans feature automatic 3-day token replenishment - even with tokens remaining in your bucket.
             </p>
           </div>
 
@@ -168,7 +245,7 @@ function BillingContent() {
               </div>
               {nextRefillDate && (
                 <div className="text-[10px] text-cyan-400 font-semibold mt-0.5">
-                  ? {nextRefillDate}
+                  ⚡ {nextRefillDate}
                 </div>
               )}
             </div>
@@ -267,7 +344,7 @@ function BillingContent() {
                   <div className="rounded-2xl bg-[#050713]/80 p-4 border border-slate-800/80">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-extrabold text-white">
-                        {displayPrice === 0 ? "?0" : `?${displayPrice.toLocaleString()}`}
+                        {displayPrice === 0 ? "₹0" : `₹${displayPrice.toLocaleString()}`}
                       </span>
                       <span className="text-xs text-slate-400 font-medium">
                         / {isAnnual ? "year" : "month"}
@@ -276,7 +353,7 @@ function BillingContent() {
 
                     {isAnnual && plan.priceAnnually > 0 && (
                       <p className="text-[10px] text-purple-300 font-semibold mt-1">
-                        � ?{Math.round(plan.priceAnnually / 12)} / month (billed annually)
+                        ≈ ₹{Math.round(plan.priceAnnually / 12)} / month (billed annually)
                       </p>
                     )}
 
@@ -327,17 +404,17 @@ function BillingContent() {
                       type="button"
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={loadingTier === plan.id}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-600/30 border border-purple-400/40 hover:scale-102 hover:shadow-purple-600/50 transition-all disabled:opacity-50"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-600/30 border border-purple-400/40 hover:scale-102 hover:shadow-purple-600/50 transition-all disabled:opacity-50 cursor-pointer"
                     >
                       {loadingTier === plan.id ? (
                         <>
                           <RefreshCw className="h-4 w-4 animate-spin text-purple-300" />
-                          <span>Connecting Stripe...</span>
+                          <span>Opening Razorpay...</span>
                         </>
                       ) : (
                         <>
                           <CreditCard className="h-4 w-4 text-purple-200" />
-                          <span>Pay with Stripe ?</span>
+                          <span>Pay with Razorpay →</span>
                         </>
                       )}
                     </button>
@@ -355,8 +432,8 @@ function BillingContent() {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold text-white">Stripe 256-Bit Encrypted Payments</p>
-              <p className="text-[11px] text-slate-400">Your card and credentials are securely processed directly by Stripe.</p>
+              <p className="font-bold text-white">Razorpay 256-Bit Encrypted Payments</p>
+              <p className="text-[11px] text-slate-400">Supports UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking, and Wallets.</p>
             </div>
           </div>
           <Link

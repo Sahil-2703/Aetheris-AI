@@ -422,7 +422,7 @@ export function Sidebar({ isCollapsed = true }: SidebarProps) {
           </div>
           <p className="text-[11px] text-slate-400">5,000 tokens • Auto-refills every 3 days</p>
           <Link href="/settings/billing" className="mt-2 block text-[11px] font-bold text-purple-400 hover:underline">
-            Upgrade with Stripe →
+            Upgrade Plan →
           </Link>
         </div>
       )}
