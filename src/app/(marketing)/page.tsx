@@ -201,7 +201,7 @@ export default function MarketingLandingPage() {
 
   const handleCopyEmail = () => {
     if (typeof navigator !== "undefined") {
-      navigator.clipboard.writeText("contact@aetheris.ai");
+      navigator.clipboard.writeText("devd34427@gmail.com");
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
     }
@@ -558,10 +558,10 @@ export default function MarketingLandingPage() {
           <div className="mt-12 text-center text-xs text-slate-400">
             Have a custom workflow or enterprise question?{" "}
             <a
-              href="mailto:contact@aetheris.ai"
+              href="mailto:devd34427@gmail.com"
               className="font-bold text-purple-400 hover:underline"
             >
-              Contact our team at contact@aetheris.ai
+              Contact our team at devd34427@gmail.com
             </a>
           </div>
         </div>
@@ -709,11 +709,11 @@ export default function MarketingLandingPage() {
                 <li className="pt-1">
                   <div className="flex items-center gap-2">
                     <a 
-                      href="mailto:contact@aetheris.ai" 
+                      href="mailto:devd34427@gmail.com" 
                       className="hover:text-purple-400 transition-colors flex items-center gap-1.5 text-slate-300"
                     >
                       <Mail className="h-3.5 w-3.5 text-purple-400" />
-                      <span>contact@aetheris.ai</span>
+                      <span>devd34427@gmail.com</span>
                     </a>
                     <button
                       type="button"
@@ -1152,7 +1152,7 @@ export default function MarketingLandingPage() {
               <div className="space-y-2">
                 <h4 className="font-bold text-white text-sm">5. Account Termination &amp; Data Deletion</h4>
                 <p className="text-slate-300">
-                  You hold the complete right to disconnect your Gmail integration or request full deletion of your user account and associated stored data at any time by contacting our support team at <strong>contact@aetheris.ai</strong>.
+                  You hold the complete right to disconnect your Gmail integration or request full deletion of your user account and associated stored data at any time by contacting our support team at <strong>devd34427@gmail.com</strong>.
                 </p>
               </div>
             </div>
@@ -1246,11 +1246,11 @@ export default function MarketingLandingPage() {
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <a
-                    href="mailto:contact@aetheris.ai?subject=[Career%20Application]%20Software%20Engineer"
+                    href="mailto:devd34427@gmail.com?subject=[Career%20Application]%20Software%20Engineer"
                     className="font-bold text-purple-400 hover:underline flex items-center gap-1.5 text-xs"
                   >
                     <Mail className="h-4 w-4" />
-                    contact@aetheris.ai
+                    devd34427@gmail.com
                   </a>
                 </div>
               </div>

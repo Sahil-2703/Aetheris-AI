@@ -56,6 +56,7 @@ export function NeuralWorkspace({
 
   const handleRunPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (loading) return;
     const query = inputQuery.trim() || activeMode.defaultPrompt || "Execute operation";
     if (!query) return;
 
@@ -83,11 +84,22 @@ export function NeuralWorkspace({
             topic: query,
             content: query,
             mode: activeMode.id,
+            conversationId: activeThread?.id,
+            threadId: activeThread?.id,
           }),
         });
 
         const data = await res.json();
-        outputText = data.reply || data.review || data.script || data.caption || data.draft || "Output generated successfully.";
+        outputText =
+          data.reply ||
+          data.output ||
+          data.review ||
+          data.script ||
+          data.caption ||
+          data.draft ||
+          data.text ||
+          data.error ||
+          "Neural response generated successfully.";
 
         if (data.tokens?.total) {
           setTokenUsage((prev) => ({

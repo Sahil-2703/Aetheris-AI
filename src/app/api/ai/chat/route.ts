@@ -8,56 +8,69 @@ import { getSystemInstructionForMode } from "@/lib/ai/prompts";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { 
-      message, 
-      prompt, 
-      code, 
-      topic, 
-      content, 
-      details, 
-      mode, 
-      systemInstruction: customSystemInstruction 
-    } = body;
+      const { 
+        message, 
+        prompt, 
+        code, 
+        topic, 
+        content, 
+        details, 
+        mode, 
+        conversationId,
+        threadId,
+        systemInstruction: customSystemInstruction 
+      } = body;
 
-    const userPrompt = message || prompt || code || topic || content || details;
+      const activeConvId = conversationId || threadId || undefined;
 
-    if (!userPrompt) {
-      return NextResponse.json(
-        { error: "Message or prompt content is required" },
-        { status: 400 }
-      );
-    }
+      const userPrompt = message || prompt || code || topic || content || details;
 
-    // Determine target system instruction based on mode or explicit custom instruction
-    const systemInstruction = getSystemInstructionForMode(mode || "general", customSystemInstruction);
-
-    const response = await generateAIContent({
-      prompt: userPrompt,
-      systemInstruction,
-    });
-
-    try {
-      const session = await auth.api.getSession({
-        headers: await headers(),
-      });
-
-      if (session?.user?.id) {
-        // 1. Record token usage
-        await recordTokenUsage(
-          session.user.id,
-          `chat_${mode || "general"}`,
-          response.tokens.input,
-          response.tokens.output
-        );
-
-        // 2. Persist conversation / generation in Supabase database
-        await recordContentGeneration(
-          session.user.id,
-          mode || "chat",
-          userPrompt,
-          response.text
+      if (!userPrompt) {
+        return NextResponse.json(
+          { error: "Message or prompt content is required" },
+          { status: 400 }
         );
       }
+
+      // Determine target system instruction based on mode or explicit custom instruction
+      const systemInstruction = getSystemInstructionForMode(mode || "general", customSystemInstruction);
+
+      const response = await generateAIContent({
+        prompt: userPrompt,
+        systemInstruction,
+      });
+
+      try {
+        let session = await auth.api.getSession({
+          headers: req.headers,
+        });
+
+        if (!session?.user?.id) {
+          session = await auth.api.getSession({
+            headers: await headers(),
+          });
+        }
+
+        const targetUserId = session?.user?.id || body.userId || req.headers.get("x-user-id");
+
+        if (targetUserId) {
+          // 1. Record token usage
+          await recordTokenUsage(
+            targetUserId,
+            `chat_${mode || "general"}`,
+            response.tokens.input,
+            response.tokens.output
+          );
+
+          // 2. Persist conversation / generation in Supabase database
+          await recordContentGeneration(
+            targetUserId,
+            mode || "chat",
+            userPrompt,
+            response.text,
+            activeConvId
+          );
+        }
     } catch (dbErr) {
       console.warn("Could not persist chat content generation to DB:", dbErr);
     }

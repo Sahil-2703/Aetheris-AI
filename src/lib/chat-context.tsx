@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth/client";
 
 export interface ChatMessage {
@@ -50,6 +50,7 @@ interface ChatContextType {
   createNewThread: () => void;
   deleteThread: (threadId: string, e?: React.MouseEvent) => void;
   appendMessageToActiveThread: (prompt: string, output: string) => void;
+  refreshCloudHistory: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -60,7 +61,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [threads, setThreads] = useState<ConversationThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>("");
 
-  // 1. Fetch user ID from session or profile endpoint for robust isolation
+  // 1. Fetch user ID from session or profile endpoint for robust multi-browser isolation
   useEffect(() => {
     async function resolveUser() {
       if (session?.user?.id) {
@@ -80,13 +81,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         // Guest mode fallback
       }
-      setCurrentUserId("guest");
+      if (!session) {
+        setCurrentUserId("guest");
+      }
     }
 
     resolveUser();
   }, [session]);
 
-  // 2. Load threads scoped strictly to currentUserId
+  // 2. Load threads from local storage first for zero-latency UI
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -109,13 +112,158 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to load user threads from storage:", e);
     }
 
-    // Default fresh session for this user
     const initial = getInitialUserThread();
     setThreads(initial);
     setActiveThreadId(initial[0].id);
   }, [currentUserId]);
 
-  // 3. Persist threads scoped strictly to currentUserId
+  // 3. Fetch persistent conversation history from Supabase content_generations table
+  const refreshCloudHistory = useCallback(async () => {
+    if (!currentUserId || currentUserId === "guest") return;
+
+    try {
+      const res = await fetch("/api/ai/history");
+      if (!res.ok) return;
+      const data = await res.json();
+      const generations = data.generations;
+
+      if (Array.isArray(generations) && generations.length > 0) {
+        const threadMap = new Map<string, { role: string; messages: ChatMessage[] }>();
+
+        generations.forEach((gen: any) => {
+          let promptText = gen.prompt_input || "";
+          let extractedMode = gen.type || "general";
+          let extractedThreadId: string | null = null;
+
+          // Parse [THREAD:<id>] metadata prefix if present
+          const threadMatch = promptText.match(/\[THREAD:([^\]]+)\]/);
+          if (threadMatch) {
+            extractedThreadId = threadMatch[1];
+            promptText = promptText.replace(/\[THREAD:[^\]]+\]\s*/, "");
+          }
+
+          // Parse [MODE:<mode>] metadata prefix if present
+          const modeMatch = promptText.match(/^\[MODE:([^\]]+)\]\s*([\s\S]*)/);
+          if (modeMatch) {
+            extractedMode = modeMatch[1];
+            promptText = modeMatch[2];
+          }
+
+          // Thread ID assignment: use explicit thread ID if saved; fallback to mode for legacy records
+          const threadId = extractedThreadId || `cloud-thread-${extractedMode}`;
+
+          if (!threadMap.has(threadId)) {
+            threadMap.set(threadId, { role: extractedMode, messages: [] });
+          }
+          const threadObj = threadMap.get(threadId)!;
+          const timeStr = gen.created_at
+            ? new Date(gen.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Recently";
+
+          threadObj.messages.push({
+            id: `db-${gen.id}-u`,
+            role: "user",
+            content: promptText.trim(),
+            timestamp: timeStr,
+          });
+          threadObj.messages.push({
+            id: `db-${gen.id}-a`,
+            role: "assistant",
+            content: gen.output,
+            timestamp: timeStr,
+          });
+        });
+
+        const cloudThreads: ConversationThread[] = [];
+        threadMap.forEach((dataObj, threadId) => {
+          const firstUserMsg = dataObj.messages.find((m) => m.role === "user");
+          const defaultTitle = firstUserMsg
+            ? firstUserMsg.content.length > 28
+              ? `${firstUserMsg.content.slice(0, 28)}...`
+              : firstUserMsg.content
+            : `${dataObj.role.toUpperCase()} SESSION`;
+
+          cloudThreads.push({
+            id: threadId,
+            title: defaultTitle,
+            role: dataObj.role,
+            updatedAt: "Cloud Synced",
+            modeId: dataObj.role,
+            messages: dataObj.messages,
+          });
+        });
+
+        if (cloudThreads.length > 0) {
+          setThreads((existingThreads) => {
+            const merged = [...existingThreads];
+            cloudThreads.forEach((ct) => {
+              // Match strictly by thread ID!
+              const matchIdx = merged.findIndex((et) => et.id === ct.id);
+              if (matchIdx >= 0) {
+                const existingMsgIds = new Set(merged[matchIdx].messages.map((m) => m.id));
+                const existingContents = new Set(
+                  merged[matchIdx].messages.map((m) => `${m.role}::${m.content.trim()}`)
+                );
+
+                const newMsgs = ct.messages.filter(
+                  (m) =>
+                    !existingMsgIds.has(m.id) &&
+                    !existingContents.has(`${m.role}::${m.content.trim()}`)
+                );
+
+                merged[matchIdx] = {
+                  ...merged[matchIdx],
+                  title:
+                    merged[matchIdx].title === "New Conversation" ||
+                    merged[matchIdx].title === "Current Active Session"
+                      ? ct.title
+                      : merged[matchIdx].title,
+                  messages: [...merged[matchIdx].messages, ...newMsgs],
+                };
+              } else {
+                merged.push(ct);
+              }
+            });
+            return merged;
+          });
+
+          // Focus active thread on first thread if current active thread is empty or invalid
+          setActiveThreadId((prevActive) => {
+            if (!prevActive) {
+              return cloudThreads[0].id;
+            }
+            return prevActive;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Could not sync cloud conversation history from Supabase:", err);
+    }
+  }, [currentUserId]);
+
+  // 4. Sync cloud history on mount, window focus, tab visibility, and custom sync events
+  useEffect(() => {
+    if (!currentUserId || currentUserId === "guest") return;
+
+    refreshCloudHistory();
+
+    const handleFocus = () => refreshCloudHistory();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshCloudHistory();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("aetheris:sync-threads", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("aetheris:sync-threads", handleFocus);
+    };
+  }, [currentUserId, refreshCloudHistory]);
+
+  // 5. Persist threads to local storage
   useEffect(() => {
     if (!currentUserId || threads.length === 0) return;
     const storageKey = `aetheris_threads_${currentUserId}`;
@@ -130,7 +278,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const rawActiveThread = threads.find((t) => t.id === activeThreadId) || threads[0];
 
-  // Guaranteed safe activeThread instance without dummy messages
   const activeThread: ConversationThread = rawActiveThread
     ? {
         ...rawActiveThread,
@@ -211,6 +358,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return t;
       })
     );
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("aetheris:sync-threads"));
+    }
   };
 
   return (
@@ -224,6 +375,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         createNewThread,
         deleteThread,
         appendMessageToActiveThread,
+        refreshCloudHistory,
       }}
     >
       {children}

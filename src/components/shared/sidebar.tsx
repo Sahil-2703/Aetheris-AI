@@ -85,7 +85,7 @@ const DEFAULT_SIDEBAR_EMAILS: SidebarEmailItem[] = [
 ];
 
 export function Sidebar({ isCollapsed = true }: SidebarProps) {
-  const { threads, activeThreadId, selectThread, createNewThread, deleteThread } = useChat();
+  const { threads, activeThreadId, selectThread, createNewThread, deleteThread, refreshCloudHistory } = useChat();
   const [activeSection, setActiveSection] = useState<"inbox" | "ai_threads">("inbox");
   const [activeEmailId, setActiveEmailId] = useState<string>("email-1");
   const [gmailMessages, setGmailMessages] = useState<SidebarEmailItem[]>(DEFAULT_SIDEBAR_EMAILS);
@@ -99,6 +99,13 @@ export function Sidebar({ isCollapsed = true }: SidebarProps) {
   const [prevTokensStack, setPrevTokensStack] = useState<string[]>([]);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [currentPageNum, setCurrentPageNum] = useState<number>(1);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await refreshCloudHistory();
+    setTimeout(() => setIsSyncing(false), 600);
+  };
 
   // Fetch live Gmail messages (with optional pageToken and search query)
   const fetchGmailMessages = async (token?: string, query?: string) => {
@@ -358,7 +365,17 @@ export function Sidebar({ isCollapsed = true }: SidebarProps) {
                 <span className="flex items-center gap-1.5 text-slate-400">
                   <Clock className="h-3 w-3" /> AI Prompt History
                 </span>
-                <span className="text-[9px] text-purple-400">{threads.length} Threads</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-purple-400">{threads.length} Threads</span>
+                  <button
+                    type="button"
+                    onClick={handleManualSync}
+                    title="Sync with cloud history"
+                    className="p-1 text-slate-400 hover:text-purple-300 transition-colors rounded hover:bg-purple-950/40"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin text-purple-400")} />
+                  </button>
+                </div>
               </div>
             )}
 

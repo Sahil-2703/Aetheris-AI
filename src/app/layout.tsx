@@ -130,7 +130,7 @@ const jsonLd = {
       "logo": `${baseUrl}/icon.svg`,
       "contactPoint": {
         "@type": "ContactPoint",
-        "email": "contact@aetheris.ai",
+        "email": "devd34427@gmail.com",
         "contactType": "customer service",
       },
     },

@@ -220,7 +220,7 @@ create table public.escalations (
 create table public.content_generations (
     id uuid primary key default gen_random_uuid(),
     user_id text not null references public."user"(id) on delete cascade,
-    type text not null check (type in ('script', 'caption')),
+    type text not null default 'general',
     prompt_input text not null,
     reference_image_url text,
     output text not null,

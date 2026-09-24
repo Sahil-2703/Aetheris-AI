@@ -1,5 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Polyfill globalThis.WebSocket for Node < 22 server environments to prevent Supabase JS SDK initialization error
+if (typeof globalThis !== "undefined" && typeof globalThis.WebSocket === "undefined") {
+  (globalThis as any).WebSocket = class {
+    constructor() {}
+    on() {}
+    send() {}
+    close() {}
+  };
+}
+
 function sanitizeUrl(url?: string): string {
   if (!url) return "";
   let clean = url.trim().replace(/\/+$/, "");
@@ -341,6 +351,7 @@ export async function recordCodeReview(
   issueDescription?: string
 ) {
   const supabase = createAdminSupabaseClient();
+  await ensureUserRecord({ id: userId });
   return supabase.from("code_reviews").insert({
     user_id: userId,
     input_code: inputCode,
@@ -357,16 +368,72 @@ export async function recordContentGeneration(
   userId: string,
   type: string,
   promptInput: string,
-  output: string
+  output: string,
+  conversationId?: string
 ) {
   const supabase = createAdminSupabaseClient();
-  return supabase.from("content_generations").insert({
+  await ensureUserRecord({ id: userId });
+
+  const reqType = type || "general";
+  
+  // Format prompt_input with [THREAD:conversationId] metadata prefix if provided
+  let formattedPrompt = promptInput;
+  if (conversationId && !formattedPrompt.includes("[THREAD:")) {
+    formattedPrompt = `[THREAD:${conversationId}] ${formattedPrompt.startsWith("[MODE:") ? formattedPrompt : `[MODE:${reqType}] ${formattedPrompt}`}`;
+  } else if (!formattedPrompt.startsWith("[MODE:") && !formattedPrompt.includes("[THREAD:")) {
+    formattedPrompt = `[MODE:${reqType}] ${formattedPrompt}`;
+  }
+  
+  // Attempt 1: Try inserting with requested type
+  let res = await supabase.from("content_generations").insert({
     user_id: userId,
-    type: type || "general",
-    prompt_input: promptInput,
+    type: reqType,
+    prompt_input: formattedPrompt,
     output,
     created_at: new Date().toISOString(),
   });
+
+  // Attempt 2: Fallback if Postgres database enforces content_generations_type_check (code 23514)
+  if (res.error && (res.error.code === "23514" || res.error.message?.includes("check constraint"))) {
+    const safeType = reqType === "caption" ? "caption" : "script";
+    res = await supabase.from("content_generations").insert({
+      user_id: userId,
+      type: safeType,
+      prompt_input: formattedPrompt,
+      output,
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  if (res.error) {
+    console.error("Failed to record content generation in Supabase:", res.error);
+  }
+  return res;
+}
+
+/**
+ * Fetches stored conversation / content generations history for a given user from Supabase
+ */
+export async function getUserContentGenerations(userId: string, limit = 100, conversationId?: string) {
+  const supabase = createAdminSupabaseClient();
+  let query = supabase
+    .from("content_generations")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (conversationId) {
+    query = query.ilike("prompt_input", `%[THREAD:${conversationId}]%`);
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error("Error fetching user content generations:", error);
+    return [];
+  }
+  return data || [];
 }
 
 /**

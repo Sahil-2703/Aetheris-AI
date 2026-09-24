@@ -22,20 +22,28 @@ export async function POST(req: NextRequest) {
     });
 
     try {
-      const session = await auth.api.getSession({
-        headers: await headers(),
+      let session = await auth.api.getSession({
+        headers: req.headers,
       });
 
-      if (session?.user?.id) {
+      if (!session?.user?.id) {
+        session = await auth.api.getSession({
+          headers: await headers(),
+        });
+      }
+
+      const targetUserId = session?.user?.id || req.headers.get("x-user-id");
+
+      if (targetUserId) {
         await recordTokenUsage(
-          session.user.id,
+          targetUserId,
           `email_${mode || "draft"}`,
           response.tokens.input,
           response.tokens.output
         );
 
         await recordContentGeneration(
-          session.user.id,
+          targetUserId,
           `email_${mode || "draft"}`,
           promptText,
           response.text
