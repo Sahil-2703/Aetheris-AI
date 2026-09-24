@@ -19,10 +19,34 @@ if (isLiveDb) {
   });
 }
 
+function getBaseUrl(): string {
+  const raw = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+  if (raw && raw.trim().length > 0) {
+    return raw.trim().replace(/\/+$/, "");
+  }
+  return "http://localhost:3000";
+}
+
+const rawOrigins = [
+  "http://localhost:3000",
+  process.env.BETTER_AUTH_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  getBaseUrl(),
+];
+
+const trustedOrigins = Array.from(
+  new Set(
+    rawOrigins
+      .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+      .map((u) => u.trim().replace(/\/+$/, ""))
+  )
+);
+
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL: getBaseUrl(),
   secret: process.env.BETTER_AUTH_SECRET || "aetheris_development_secret_key_123456789",
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
   },
