@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { dash } from "@better-auth/infra";
 import { Pool } from "pg";
 
 const connectionString = (process.env.DATABASE_URL || "").trim();
@@ -52,12 +53,17 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "placeholder-google-client-id",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "placeholder-google-client-secret",
+      clientId: (process.env.GOOGLE_CLIENT_ID || "").trim(),
+      clientSecret: (process.env.GOOGLE_CLIENT_SECRET || "").trim(),
+      enabled: true,
     },
     microsoft: {
-      clientId: process.env.MICROSOFT_CLIENT_ID || "placeholder-microsoft-client-id",
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET || "placeholder-microsoft-client-secret",
+      clientId: (process.env.MICROSOFT_CLIENT_ID || "").trim(),
+      clientSecret: (process.env.MICROSOFT_CLIENT_SECRET || "").trim(),
+      enabled: Boolean((process.env.MICROSOFT_CLIENT_ID || "").trim() && (process.env.MICROSOFT_CLIENT_SECRET || "").trim()),
     },
   },
+  plugins: [
+    dash(),
+  ],
 });

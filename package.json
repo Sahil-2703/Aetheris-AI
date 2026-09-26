@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@better-auth/infra": "^0.4.1",
+    "@better-auth/infra": "^0.4.11",
     "@google/genai": "^2.17.1",
     "@google/generative-ai": "^0.24.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
