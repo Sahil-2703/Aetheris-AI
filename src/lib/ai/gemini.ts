@@ -1,11 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function getApiKey(): string {
-  const rawKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyBwLTu133p4ds8MiHGkDf4QCZOEeqjGn4U";
+  const rawKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
   return rawKey.trim();
 }
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
 
 export function getGeminiModel(
   modelName: string = DEFAULT_GEMINI_MODEL,
@@ -170,8 +170,8 @@ export async function generateAIContent({
   const apiKey = getApiKey();
 
   if (apiKey) {
-    const modelsToTry = ["gemini-3.6-flash", modelName, "gemini-2.5-flash", "gemini-2.0-flash"];
-    const uniqueModels = Array.from(new Set(modelsToTry));
+    const modelsToTry = [modelName, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash"];
+    const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
 
     for (const targetModel of uniqueModels) {
       try {
@@ -192,9 +192,11 @@ export async function generateAIContent({
           };
         }
       } catch (err: any) {
-        console.warn(`Gemini model ${targetModel} notice:`, err.message || err);
+        console.error(`[Gemini API Error] Model '${targetModel}' execution failed:`, err.message || err);
       }
     }
+  } else {
+    console.error("[Gemini API Warning] GEMINI_API_KEY environment variable is not configured or is empty.");
   }
 
   // Fallback: Smart AI Neural Synthesis Engine if API quota is exceeded or offline

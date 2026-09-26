@@ -152,7 +152,7 @@ export function NeuralWorkspace({
             {/* Core Badge */}
             <div className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3.5 py-1.5 text-[11px] font-mono font-bold tracking-wider text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
               <Cpu className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-              <span>AETHERIS AI DECISION CORE (GEMINI-3.6-FLASH)</span>
+              <span>AETHERIS AI DECISION CORE (GEMINI 1.5 / 2.0 FLASH)</span>
             </div>
           </div>
 
