@@ -194,7 +194,7 @@ const faqJsonLd = {
 };
 
 export default function MarketingLandingPage() {
-  const [activeModal, setActiveModal] = useState<"about" | "terms" | "career" | null>(null);
+  const [activeModal, setActiveModal] = useState<"about" | "career" | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [aboutTab, setAboutTab] = useState<"workflow" | "structure" | "how_to_use" | "ai_engine" | "why_better">("workflow");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -734,37 +734,34 @@ export default function MarketingLandingPage() {
                 <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
                 <span>Governance</span>
               </h4>
-              <ul className="space-y-2 text-xs">
+              <ul className="space-y-2 text-xs font-mono">
                 <li>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveModal("terms")}
-                    className="hover:text-purple-400 transition-colors text-left cursor-pointer font-bold text-slate-300"
+                  <Link 
+                    href="/terms"
+                    className="hover:text-purple-400 transition-colors text-left cursor-pointer font-bold text-slate-300 block"
                   >
-                    Terms and Condition
-                  </button>
+                    Terms &amp; Conditions
+                  </Link>
                 </li>
                 <li>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveModal("terms")}
-                    className="hover:text-purple-400 transition-colors text-left cursor-pointer"
+                  <Link 
+                    href="/privacy"
+                    className="hover:text-purple-400 transition-colors text-left cursor-pointer font-bold text-purple-300 block"
                   >
-                    AI Ethics & Legal Notice
-                  </button>
+                    Privacy Policy
+                  </Link>
                 </li>
                 <li>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveModal("terms")}
-                    className="hover:text-purple-400 transition-colors text-left cursor-pointer text-slate-400"
+                  <Link 
+                    href="/terms"
+                    className="hover:text-purple-400 transition-colors text-left cursor-pointer text-slate-400 block"
                   >
-                    Data Storage & Knowledge Building
-                  </button>
+                    AI Ethics &amp; Legal Notice
+                  </Link>
                 </li>
                 <li className="pt-1">
                   <span className="text-[10px] text-slate-500 leading-normal block border-l-2 border-purple-500/30 pl-2">
-                    User data is stored securely in Supabase with RLS &amp; utilized for continuous knowledge building.
+                    User data is protected with Supabase RLS &amp; strict Google Limited Use policy.
                   </span>
                 </li>
               </ul>
@@ -1080,96 +1077,7 @@ export default function MarketingLandingPage() {
 
       {/* ========================================================================= */}
       {/* MODAL 2: TERMS AND CONDITIONS (Ethics, Legal & Data Storing Disclosure) */}
-      {/* ========================================================================= */}
-      {activeModal === "terms" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-md overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl border border-purple-500/40 bg-[#080a1e] text-slate-200 shadow-2xl shadow-purple-950/60 overflow-hidden font-mono text-xs">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 p-5 bg-[#050713]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white tracking-wide">Terms &amp; Conditions and Privacy Policy</h3>
-                  <p className="text-[11px] text-slate-400">AI Ethics, Legal Governance, and Data Storage Disclosure</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveModal(null)}
-                className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-5 max-h-[65vh] leading-relaxed">
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-[11px] text-amber-200 leading-relaxed">
-                <strong>Important Legal Notice:</strong> Please read these Terms and Conditions thoroughly before accessing or using Aetheris AI services. By creating an account or syncing third-party providers, you acknowledge and agree to the terms below.
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-white text-sm">1. AI Ethics &amp; Responsible Deployment</h4>
-                <p className="text-slate-300">
-                  Aetheris AI is engineered adhering to principles of responsible artificial intelligence, fairness, and safety. All AI-generated email summaries, analysis points, and draft replies are recommendations provided to assist your workflow. You, as the user, retain ultimate responsibility for reviewing, editing, and verifying the accuracy and appropriateness of any generated draft before sending it to third parties.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-white text-sm">2. Data Storage &amp; Knowledge Building Disclosure</h4>
-                <p className="text-slate-300">
-                  By connecting your communication accounts (including Google Gmail) and using Aetheris AI, you explicitly acknowledge, consent, and agree that:
-                </p>
-                <ul className="list-disc pl-5 space-y-1.5 text-slate-400 text-[11px]">
-                  <li>
-                    <strong>Secure User Isolation:</strong> Your account profile, synced email metadata (headers, subject, sender, date), content bodies, and user prompts are stored in encrypted Supabase PostgreSQL database tables protected by Row Level Security (RLS).
-                  </li>
-                  <li>
-                    <strong>Knowledge Building &amp; Optimization:</strong> You consent and authorize Aetheris AI to store, process, index, and analyze user interaction telemetry, prompts, and contextual workflow data. This data is utilized for continuous machine learning model improvement, internal knowledge building, retrieval-augmented generation (RAG) fine-tuning, and performance optimization to deliver superior automated email triage.
-                  </li>
-                  <li>
-                    <strong>No Unauthorized Sale:</strong> Aetheris AI will never sell your personal contact information or raw emails to external data brokers or advertisers.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-white text-sm">3. Google API Services User Data Policy</h4>
-                <p className="text-slate-300">
-                  Aetheris AI&apos;s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-white text-sm">4. Token Quotas &amp; Subscription Terms</h4>
-                <p className="text-slate-300">
-                  All subscriptions (Free, Premium, Premium Pro) include atomic token quotas that automatically replenish every 3 days (72 hours). Payments processed through Razorpay are subject to Razorpay&apos;s terms of service. You may cancel your subscription at any time through the billing dashboard.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-white text-sm">5. Account Termination &amp; Data Deletion</h4>
-                <p className="text-slate-300">
-                  You hold the complete right to disconnect your Gmail integration or request full deletion of your user account and associated stored data at any time by contacting our support team at <strong>devd34427@gmail.com</strong>.
-                </p>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="border-t border-slate-800 p-4 bg-[#050713] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveModal(null)}
-                className="rounded-full bg-slate-800 hover:bg-slate-700 px-6 py-2 text-xs font-bold text-white transition-all cursor-pointer"
-              >
-                I Understand &amp; Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* MODAL 3: CAREERS AT AETHERIS AI */}

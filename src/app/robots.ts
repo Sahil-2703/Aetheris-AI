@@ -9,6 +9,8 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: [
           "/",
+          "/terms",
+          "/privacy",
           "/sign-in",
           "/sign-up",
           "/settings/billing",
@@ -23,6 +25,8 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "Googlebot",
         allow: [
           "/",
+          "/terms",
+          "/privacy",
           "/sign-in",
           "/sign-up",
           "/settings/billing",
