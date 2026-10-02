@@ -5,7 +5,7 @@ function getApiKey(): string {
   return rawKey.trim();
 }
 
-export const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 
 export function getGeminiModel(
   modelName: string = DEFAULT_GEMINI_MODEL,
@@ -32,133 +32,7 @@ export function estimateTokenCount(text: string): number {
 }
 
 /**
- * Smart contextual fallback engine for domain queries when live API rate limits / quotas are reached
- */
-export function generateSmartFallbackResponse(prompt: string, systemInstruction?: string): string {
-  const query = (prompt || "").toLowerCase();
-
-  // 1. RAG vs Knowledge Graph Queries
-  if (query.includes("rag") || query.includes("graph")) {
-    return `### RAG (Retrieval-Augmented Generation) vs. Graph Models in AI
-
-Both **RAG** and **Graph Models (Knowledge Graphs)** address key limitations of Large Language Models (LLMs)—such as hallucinations, lack of domain-specific knowledge, and stale data. However, they structure and retrieve context in fundamentally different ways:
-
----
-
-#### 1. RAG (Retrieval-Augmented Generation)
-* **Core Mechanism**: Converts text data into vector embeddings stored in a vector database (e.g., Supabase pgvector, Pinecone). When a user query arrives, semantic vector similarity (cosine distance) retrieves top-k relevant document chunks to inject into the LLM context prompt.
-* **Key Strengths**:
-  * Highly scalable across massive unstructured text collections (PDFs, docs, emails, codebase files).
-  * Fast semantic search without requiring predefined schema ontologies.
-* **Limitations**: Struggles with multi-hop reasoning (connecting relationships across distant documents).
-
----
-
-#### 2. Graph Models & Knowledge Graphs (Graph RAG)
-* **Core Mechanism**: Structures data into explicit **Entities (Nodes)** and **Relationships (Edges)** (e.g., Neo4j, RDF Triples). Queries traverse graph relationships to understand explicit multi-entity connections.
-* **Key Strengths**:
-  * Exceptional at multi-hop reasoning, complex organizational structures, and exact relationship mapping.
-  * Zero ambiguity in entity connections.
-* **Limitations**: Requires upfront entity extraction and graph schema building.
-
----
-
-#### 💡 Modern Industry Consensus: Hybrid GraphRAG
-Combining **Vector RAG** (for semantic document retrieval) with **Knowledge Graphs** (for structural relationship navigation) provides the highest accuracy and lowest hallucination rate for enterprise AI applications.`;
-  }
-
-  // 2. Code Review & Engineering Queries
-  if (query.includes("code") || query.includes("function") || query.includes("bug") || query.includes("error") || query.includes("refactor")) {
-    return `### Engineering Code Review & Optimization Analysis
-
-**AST & Context Diagnosis**:
-* **Language/Framework**: TypeScript / React / Node.js
-* **Analysis**: Inspected logic flow, state handlers, asynchronous promise resolutions, and exception boundaries.
-
----
-
-#### Recommended Fixes & Enhancements:
-1. **Error Handling**: Wrap asynchronous operations in strict \`try/catch\` blocks with descriptive error messages.
-2. **State Mutability**: Maintain immutable state updates to prevent unexpected side effects across re-renders.
-3. **Type Safety**: Ensure strict TypeScript parameter types and handle \`null\` / \`undefined\` checks before property dereferencing.
-
-\`\`\`typescript
-// Optimized Implementation Example
-export async function handleOperationSafely<T>(fn: () => Promise<T>): Promise<T | null> {
-  try {
-    return await fn();
-  } catch (error: any) {
-    console.error("Operation failed:", error.message || error);
-    return null;
-  }
-}
-\`\`\`
-
-*Code review verified by Aetheris AI Decision Core.*`;
-  }
-
-  // 3. Email Triage & Response Queries
-  if (query.includes("email") || query.includes("inbox") || query.includes("reply") || query.includes("subject") || query.includes("dear")) {
-    return `**Subject**: Re: Follow-up regarding your recent inquiry
-
-Dear Sender,
-
-Thank you for reaching out to us. I have carefully reviewed your message and context.
-
-We are currently reviewing the details provided and will proceed with the next steps immediately. Please let us know if you have any additional requirements or timelines we should align with.
-
-Best regards,
-
-**Aetheris AI Autonomous Email Assistant**
-*Sent via Neural Inbox Triage*`;
-  }
-
-  // 4. Content Creation, Gaming & Video Scripts
-  if (
-    query.includes("script") ||
-    query.includes("video") ||
-    query.includes("hook") ||
-    query.includes("reel") ||
-    query.includes("caption") ||
-    query.includes("youtuber") ||
-    query.includes("youtube") ||
-    query.includes("gaming") ||
-    query.includes("esports") ||
-    query.includes("channel") ||
-    query.includes("game")
-  ) {
-    return `**Gaming Channel Strategy & Content Blueprint**
-
-If I were launching a gaming/esports YouTube channel today, I would focus on **Valorant** (or Counter-Strike 2). It has massive competitive interest, frequent meta changes, and a huge global audience searching for both high-level tactics and entertaining moments.
-
----
-
-### 🎬 Content Pipeline:
-1. **Agent Meta Guides & Tactical Lineups**:
-   * Short 60-second Shorts/Reels: "Must-Know Sova Recon Darts for Ascent" or "3 Tricks Radiants Use to Clutch 1v3 Scenarios".
-2. **Esports Pro Match Breakdowns**:
-   * "Why VCT Pros Are Secretly Maining Fade in 2026" — analyzing pro decision-making, rotations, and utility usage.
-3. **High-Retention Challenge Series**:
-   * "Solo Queueing to Radiant Using ONLY Classic Pistol" — episodic storytelling that builds a loyal subscriber community.
-
-[Look at camera]
-"Stop trying to cover 10 games at once. Double down on one tactical shooter, master the meta, and churn out short-form clips alongside deep-dive pro breakdowns."`;
-  }
-
-  // 5. Default Conversational Response (Zero Corporate Meta Framing)
-  return `Here is a direct response for your request:
-
-* **Core Focus**: "${prompt}"
-* **Key Execution Plan**:
-  1. Identify your primary audience and core goal immediately.
-  2. Execute with high-impact, direct messaging without introductory fluff.
-  3. Track performance metrics and iterate based on real feedback.
-
-*Ready for immediate deployment.*`;
-}
-
-/**
- * Generate AI content with token usage estimation, multi-model retries, and smart fallback
+ * Generate AI content with token usage estimation and multi-model retries
  */
 export async function generateAIContent({
   prompt,
@@ -171,47 +45,48 @@ export async function generateAIContent({
 }) {
   const apiKey = getApiKey();
 
-  if (apiKey) {
-    const modelsToTry = [modelName, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-2.0-flash"];
-    const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
-
-    for (const targetModel of uniqueModels) {
-      try {
-        const model = getGeminiModel(targetModel, systemInstruction);
-        const estimatedInputTokens = estimateTokenCount(prompt + (systemInstruction || ""));
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-
-        if (responseText && responseText.trim().length > 0) {
-          const estimatedOutputTokens = estimateTokenCount(responseText);
-          return {
-            text: responseText,
-            tokens: {
-              input: estimatedInputTokens,
-              output: estimatedOutputTokens,
-              total: estimatedInputTokens + estimatedOutputTokens,
-            },
-          };
-        }
-      } catch (err: any) {
-        console.error(`[Gemini API Error] Model '${targetModel}' execution failed:`, err.message || err);
-      }
-    }
-  } else {
-    console.error("[Gemini API Warning] GEMINI_API_KEY environment variable is not configured or is empty.");
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is not configured or is empty. Please set a valid key in your server .env file.");
   }
 
-  // Fallback: Smart AI Neural Synthesis Engine if API quota is exceeded or offline
-  const fallbackText = generateSmartFallbackResponse(prompt, systemInstruction);
-  const inputEst = estimateTokenCount(prompt);
-  const outputEst = estimateTokenCount(fallbackText);
+  const modelsToTry = [
+    modelName,
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
+    "gemini-3.6-flash"
+  ];
+  const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
 
-  return {
-    text: fallbackText,
-    tokens: {
-      input: inputEst,
-      output: outputEst,
-      total: inputEst + outputEst,
-    },
-  };
+  let lastError: Error | null = null;
+
+  for (const targetModel of uniqueModels) {
+    try {
+      const model = getGeminiModel(targetModel, systemInstruction);
+      const estimatedInputTokens = estimateTokenCount(prompt + (systemInstruction || ""));
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+
+      if (responseText && responseText.trim().length > 0) {
+        const estimatedOutputTokens = estimateTokenCount(responseText);
+        return {
+          text: responseText,
+          tokens: {
+            input: estimatedInputTokens,
+            output: estimatedOutputTokens,
+            total: estimatedInputTokens + estimatedOutputTokens,
+          },
+        };
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.error(`[Gemini API Error] Model '${targetModel}' execution failed:`, err.message || err);
+    }
+  }
+
+  throw new Error(
+    `Gemini API execution failed across all models (${uniqueModels.join(", ")}): ${lastError?.message || "No content generated"}`
+  );
 }
