@@ -142,10 +142,7 @@ export default function PrivacyPage() {
                 <strong className="text-slate-200">https://www.googleapis.com/auth/gmail.readonly:</strong> Used strictly to fetch incoming email messages and headers so our Google Gemini multimodal engine can generate context summaries and intent classification highlights in your private workspace.
               </li>
               <li>
-                <strong className="text-slate-200">https://www.googleapis.com/auth/gmail.send:</strong> Used strictly to dispatch drafted email replies when you explicitly initiate or confirm a response action.
-              </li>
-              <li>
-                <strong className="text-slate-200">userinfo.email &amp; profile:</strong> Used strictly to identify your account session and display your primary Gmail address in your dashboard settings.
+                <strong className="text-slate-200">userinfo.email &amp; userinfo.profile:</strong> Used strictly to authenticate your account session and display your verified email identity in your dashboard settings.
               </li>
             </ul>
           </section>
